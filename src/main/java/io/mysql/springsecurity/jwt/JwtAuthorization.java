@@ -24,35 +24,39 @@ public class JwtAuthorization extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
-        String authToken=request.getHeader("Authorization");
-        if(authToken!=null && authToken.startsWith("Bearer ")){
-            try {
+        if(request.getServletPath().equals("/refreshToken")){
+            filterChain.doFilter(request,response);
+        }else {
+            String authToken=request.getHeader("Authorization");
+            if(authToken!=null && authToken.startsWith("Bearer ")){
+                try {
 
-                String jwtAccessToken=authToken.substring(7);
-                Algorithm algorithm=Algorithm.HMAC256("SECRET");
-                JWTVerifier jwtVerifier= JWT.require(algorithm).build();
-                DecodedJWT decodedJWT = jwtVerifier.verify(jwtAccessToken);
-                String username=decodedJWT.getSubject();
-                String[] roles=decodedJWT.getClaim("roles").asArray(String.class);
-                Collection<GrantedAuthority> authorities=new ArrayList<>();
-                for(String role:roles){
-                    authorities.add(new SimpleGrantedAuthority(role));
+                    String jwtAccessToken=authToken.substring(7);
+                    Algorithm algorithm=Algorithm.HMAC256("SECRET");
+                    JWTVerifier jwtVerifier= JWT.require(algorithm).build();
+                    DecodedJWT decodedJWT = jwtVerifier.verify(jwtAccessToken);
+                    String username=decodedJWT.getSubject();
+                    String[] roles=decodedJWT.getClaim("roles").asArray(String.class);
+                    Collection<GrantedAuthority> authorities=new ArrayList<>();
+                    for(String role:roles){
+                        authorities.add(new SimpleGrantedAuthority(role));
+                    }
+
+                    UsernamePasswordAuthenticationToken authenticationToken=
+                            new UsernamePasswordAuthenticationToken(username,null,authorities);
+
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    filterChain.doFilter(request,response);
+
+                }catch (Exception e){
+
+                    new ObjectMapper().writeValue(response.getOutputStream(),"TOKEN INVALIDE");
+
                 }
 
-                UsernamePasswordAuthenticationToken authenticationToken=
-                        new UsernamePasswordAuthenticationToken(username,null,authorities);
-
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            }else{
                 filterChain.doFilter(request,response);
-
-            }catch (Exception e){
-
-                new ObjectMapper().writeValue(response.getOutputStream(),"TOKEN INVALIDE");
-
             }
-
-        }else{
-            filterChain.doFilter(request,response);
         }
 
     }
